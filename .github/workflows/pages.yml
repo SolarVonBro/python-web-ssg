@@ -49,15 +49,6 @@ jobs:
         run: make site PY=python
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with: {path: site}
-      # Отдельный артефакт — сборка под подкаталог Helios (другой site_url)
-      - name: Build for Helios
-        if: github.ref == 'refs/heads/main' && vars.HELIOS_URL != ''
-        env:
-          SITE_URL: ${{ vars.HELIOS_URL }}
-        run: rm -rf site && mkdocs build --strict -d site-helios
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.ref == 'refs/heads/main' && vars.HELIOS_URL != ''
-        with: {name: site-helios, path: site-helios}
       # Сборка для Yandex Object Storage (корень бакета, свой site_url)
       - name: Build for Yandex Object Storage
         if: github.ref == 'refs/heads/main' && vars.YC_SITE_URL != ''
@@ -106,30 +97,3 @@ jobs:
     steps:
       - id: d
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
-
-  deploy-helios:
-    # выполняется только если настроен Helios (переменная HELIOS_URL задана)
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.HELIOS_URL != ''
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with: {name: site-helios, path: site-helios}
-      - name: SSH setup + rsync (known_hosts закреплён, StrictHostKeyChecking не отключается)
-        env:   # секреты передаются через env, а не подстановкой в текст скрипта
-          KEY: ${{ secrets.HELIOS_SSH_KEY }}
-          KNOWN: ${{ secrets.HELIOS_KNOWN_HOSTS }}
-          H: ${{ secrets.HELIOS_HOST }}
-          U: ${{ secrets.HELIOS_USER }}
-          P: ${{ secrets.HELIOS_PORT }}
-          D: ${{ secrets.HELIOS_PATH }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
-          rsync -az --delete -e "ssh -i ~/.ssh/id_deploy -p $P" site-helios/ "$U@$H:$D/"
-      - name: Healthcheck (код 200 + контрольная строка)
-        env: {URL: "${{ vars.HELIOS_URL }}"}
-        run: |
-          code=$(curl -s -o page.html -w '%{http_code}' "${URL}results/")
-          [ "$code" = 200 ] && grep -q 'pipeline-ok-p3' page.html

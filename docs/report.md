@@ -33,7 +33,6 @@
 | 6 | На опубликованном сайте формула показана сырым LaTeX (`\[ R^2 = 1 - \frac{...`), хотя проверка «2 контейнера `mjx-container`» прошла | Конфиг MathJax неверен: оболочка Bash схлопнула `\\` в `\`, и разделителями формул стали обычные скобки; найденные 2 контейнера — это `(y_i - \hat y_i)`, а не формулы | Скриншот страницы, `cat docs/javascripts/mathjax-config.js`, поиск `frac{` в DOM после отрисовки | Файл записан инструментом Write с корректным экранированием; проверка усилена: в DOM нет `frac{`, есть inline- и display-контейнеры |
 | 7 | `yc storage s3 cp --recursive site/ s3://bucket/` залил файлы, но вложенные страницы отдают 404; в логе `upload: site\search\search_index.json to s3://.../search\search_index.json` | `yc` на Windows переносит обратные слэши в ключ объекта, а S3-ключ должен содержать `/` | `curl` вложенных URL, вывод команды, листинг ключей | Загрузка через S3 API (boto3 локально, `aws s3 sync` в CI) с ключами через `/`, неверные объекты удалены (80 шт.) |
 | 8 | `yc ... failed to initialize SDK: ... DeadlineExceeded` | Сеть не блокирует Яндекс (TCP до `api.cloud.yandex.net:443` проходит) — сбой обнаружения эндпоинтов временный | `Test-NetConnection`, `yc --debug`, повтор команды | Повтор с ретраями (3–4 попытки) в оболочке |
-| 9 | `TimeoutError` при подключении к `helios.cs.ifmo.ru:2222`, `Test-NetConnection: TcpTestSucceeded False` | Сервер ИТМО недоступен из сети (закрыт снаружи университета/страны) | TCP-проверка порта 2222 и `se.ifmo.ru:443`, DNS-резолв проходит (77.234.196.4) | Деплой переведён на Yandex Object Storage; `deploy-helios` отключён по умолчанию |
 
 ## Ссылки
 
@@ -42,7 +41,6 @@
 | Репозиторий | <https://github.com/SolarVonBro/python-web-ssg> |
 | Сайт на GitHub Pages | <https://solarvonbro.github.io/python-web-ssg/> |
 | Сайт на Yandex Object Storage | <http://python-web-ssg-398704.website.yandexcloud.net/> |
-| Helios ИТМО | недоступен из сети, см. раздел «Отечественный хостинг» |
 | Workflow | `.github/workflows/pages.yml` |
 | Ветка с намеренной ошибкой | `broken-link` |
 
@@ -54,16 +52,14 @@ push / PR (любая ветка)
    [lint]  python scripts/run_experiment.py + stamp.py; mkdocs build --strict
       │  (ошибка/предупреждение → job красный, дальше не идёт)
    [build] кэш .cache+docs/generated (ключ = хеш data/** и скрипта),
-      │    make site → артефакт Pages; для main + HELIOS_URL — ещё и site-helios
+      │    make site → артефакт Pages; для main — ещё и site-yandex
       ├── [deploy-pages]  только main и не PR: OIDC, upload/deploy-pages
-      ├── [deploy-yandex] только main и не PR: aws s3 sync в Object Storage + healthcheck
-      └── [deploy-helios] только main и не PR и если задан HELIOS_URL:
-                          rsync по SSH (known_hosts закреплён) + healthcheck
+      └── [deploy-yandex] только main и не PR: aws s3 sync в Object Storage + healthcheck
 ```
 
 | Событие | Поведение |
 |---|---|
-| push в `main` | lint → build → deploy-pages (→ deploy-yandex; deploy-helios, если настроен) |
+| push в `main` | lint → build → deploy-pages и deploy-yandex |
 | push в другую ветку | lint → build, деплой пропущен (`skipped`) |
 | pull request | lint → build; секреты и деплой недоступны |
 | `workflow_dispatch` | ручной запуск, как push в выбранную ветку |
@@ -117,14 +113,12 @@ Aborted with 1 warnings in strict mode!
 ```
 
 `--strict` превращает предупреждение о битой ссылке в ошибку; зависимые job
-`build`, `deploy-pages`, `deploy-helios` получили статус `skipped`, на сайт ничего не попало.
+`build`, `deploy-pages`, `deploy-yandex` получили статус `skipped`, на сайт ничего не попало.
 
 ## Отечественный хостинг: Yandex Object Storage
 
-Helios ИТМО с компьютера автора и из среды выполнения недоступен (`helios.cs.ifmo.ru:2222` и `se.ifmo.ru`
-не отвечают по TCP: адрес 77.234.196.4, таймаут), поэтому в качестве отечественного статического
-хостинга использован **Yandex Object Storage** в режиме хостинга сайта. Задание допускает
-«Helios или другой отечественный хостинг».
+В качестве отечественного статического хостинга использован **Yandex Object Storage** в режиме
+хостинга сайта.
 
 | Параметр | Значение |
 |---|---|

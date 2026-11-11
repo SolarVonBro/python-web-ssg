@@ -1,7 +1,7 @@
 site_name: Публикация результатов эксперимента (MkDocs)
 site_description: Статический сайт на MkDocs Material, конвейер данные → результат → сайт
 site_author: Holiienko Roman
-# SITE_URL задаётся в CI: GitHub Pages (корень проекта) или подкаталог на Helios.
+# SITE_URL задаётся в CI: GitHub Pages (подкаталог проекта) или корень бакета Yandex Object Storage.
 site_url: !ENV [SITE_URL, "http://127.0.0.1:8000/"]
 use_directory_urls: true        # все ссылки относительные -> работает и в подкаталоге
 copyright: Контент — CC BY 4.0, код — MIT
