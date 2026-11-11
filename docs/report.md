@@ -90,17 +90,15 @@ push / PR (любая ветка)
 
 ![Страница P3, мобильный](assets/screens/site-results-mobile.png)
 
-Примечание: headless Chrome не создаёт окно уже ~500 px, поэтому снимок «390 px» обрезан справа; это артефакт съёмки, а не вёрстки (Material адаптивен, меню свёрнуто в «гамбургер»). Полноценную проверку на устройстве/эмуляторе при необходимости нужно повторить.
+Снимок мобильной версии сделан эмуляцией устройства с шириной экрана 390 px (Chrome, Playwright) на всю высоту страницы.
 
-Сайт на Yandex Object Storage и успешный запуск с деплоем на Яндекс:
+Сайт на Yandex Object Storage и успешный запуск пайплайна (lint → build → deploy-yandex и deploy-pages):
 
 ![Сайт на Яндексе](assets/screens/yandex-results-desktop.png)
 
 ![Запуск с deploy-yandex](assets/screens/actions-yandex-success.png)
 
-Успешный запуск (`e7943b2`) и намеренно проваленный (ветка `broken-link`):
-
-![Успешный запуск](assets/screens/actions-success.png)
+Намеренно проваленный запуск (ветка `broken-link`): lint упал, остальные job пропущены.
 
 ![Проваленный запуск](assets/screens/actions-failed.png)
 
