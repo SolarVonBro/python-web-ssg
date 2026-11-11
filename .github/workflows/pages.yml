@@ -1,0 +1,98 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: ["**"]          # любая ветка: lint + build; deploy — только main
+  pull_request:               # из форка секреты недоступны -> deploy не выполняется
+  workflow_dispatch:
+
+permissions:
+  contents: read              # минимум прав по умолчанию
+
+env:
+  PYTHON_VERSION: "3.14"
+  NO_MKDOCS_2_WARNING: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements.txt
+      - run: python scripts/run_experiment.py && python scripts/stamp.py
+      - name: mkdocs build --strict (битые ссылки = ошибка)
+        run: mkdocs build --strict
+
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements.txt
+      # P3: кэш результатов эксперимента. Ключ = хеш данных и скриптов.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .cache
+            docs/generated
+          key: experiment-${{ hashFiles('data/**', 'scripts/run_experiment.py') }}
+      - id: pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Build for GitHub Pages
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url || 'http://localhost/' }}
+        run: make site PY=python
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with: {path: site}
+      # Отдельный артефакт — сборка под подкаталог Helios (другой site_url)
+      - name: Build for Helios
+        if: github.ref == 'refs/heads/main'
+        env:
+          SITE_URL: ${{ vars.HELIOS_URL }}
+        run: rm -rf site && mkdocs build --strict -d site-helios
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.ref == 'refs/heads/main'
+        with: {name: site-helios, path: site-helios}
+
+  deploy-pages:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: {pages: write, id-token: write}   # права только на этом job
+    environment: {name: github-pages, url: "${{ steps.d.outputs.page_url }}"}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  deploy-helios:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: site-helios, path: site-helios}
+      - name: SSH setup + rsync (known_hosts закреплён, StrictHostKeyChecking не отключается)
+        env:   # секреты передаются через env, а не подстановкой в текст скрипта
+          KEY: ${{ secrets.HELIOS_SSH_KEY }}
+          KNOWN: ${{ secrets.HELIOS_KNOWN_HOSTS }}
+          H: ${{ secrets.HELIOS_HOST }}
+          U: ${{ secrets.HELIOS_USER }}
+          P: ${{ secrets.HELIOS_PORT }}
+          D: ${{ secrets.HELIOS_PATH }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s
+' "$KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s
+' "$KNOWN" > ~/.ssh/known_hosts
+          rsync -az --delete -e "ssh -i ~/.ssh/id_deploy -p $P" site-helios/ "$U@$H:$D/"
+      - name: Healthcheck (код 200 + контрольная строка)
+        env: {URL: "${{ vars.HELIOS_URL }}"}
+        run: |
+          code=$(curl -s -o page.html -w '%{http_code}' "${URL}results/")
+          [ "$code" = 200 ] && grep -q 'pipeline-ok-p3' page.html

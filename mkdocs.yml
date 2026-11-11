@@ -1,0 +1,40 @@
+site_name: Публикация результатов эксперимента (MkDocs)
+site_description: Статический сайт на MkDocs Material, конвейер данные → результат → сайт
+site_author: Holiienko Roman
+# SITE_URL задаётся в CI: GitHub Pages (корень проекта) или подкаталог на Helios.
+site_url: !ENV [SITE_URL, "http://127.0.0.1:8000/"]
+use_directory_urls: true        # все ссылки относительные -> работает и в подкаталоге
+copyright: Контент — CC BY 4.0, код — MIT
+
+theme:
+  name: material
+  language: ru
+  font: false                    # без Google Fonts -> нет внешних запросов (T4)
+  features: [navigation.top, search.highlight, content.code.copy]
+
+plugins:
+  - search:
+      lang: [ru, en]
+
+markdown_extensions:
+  - tables
+  - footnotes
+  - toc: {permalink: true}
+  - pymdownx.arithmatex: {generic: true}
+  - pymdownx.highlight: {anchor_linenums: true, linenums: true}
+  - pymdownx.superfences
+  - pymdownx.snippets: {base_path: ["."], check_paths: true}
+
+extra_javascript:
+  - javascripts/mathjax-config.js
+  - javascripts/tex-svg.js       # MathJax хранится локально, не с CDN
+
+exclude_docs: |
+  javascripts/*.md
+  generated/*.md
+
+nav:
+  - Главная: index.md
+  - "P3: данные → сайт": results.md
+  - "T4: безопасность доставки": research-t4.md
+  - Отчёт и отладка: report.md

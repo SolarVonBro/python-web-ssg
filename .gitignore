@@ -1,0 +1,11 @@
+.venv/
+venv/
+site/
+_build/
+__pycache__/
+*.pyc
+.cache/
+# артефакты конвейера P3 — генерируются при сборке
+docs/generated/
+.DS_Store
+.idea/
