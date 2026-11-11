@@ -29,9 +29,7 @@
 | 2 | `cp: cannot create regular file '.cache/m.bak'` — после `make clean` каталога нет, а следующий шаг уже изменил `data/measurements.csv` | Цепочка команд продолжилась после ошибки, резервная копия не создана | `head`/`sha256sum` данных | Данные пересозданы тем же генератором с seed=42 (хеш совпал), в скриптах добавлены `mkdir -p` и `set -e` |
 | 3 | Вывод скрипта «кракозябрами» (`� �������� ������`) | Консоль Windows в cp866/cp1251, Python пишет UTF-8 | `PYTHONIOENCODING=utf-8` | Переменная задана в сборке; в CI (Linux) проблемы нет |
 | 4 | `curl: (7)`/код `000` при проверке страницы | Сервер запущен в фоне, но не успел стартовать, затем процесс был завершён вместе с подоболочкой | Лог `http.server`, повторный запрос после паузы | Запуск с `sleep`/ожиданием готовности перед запросом |
-| 5 | Run на GitHub: `failure`, **0 jobs**, workflow не стартовал | Невалидный YAML: при правке файла скриптом `
-` внутри `printf '%s
-'` стал реальным переводом строки | `yaml.safe_load` локально: `could not find expected ':'`, line 90 | Экранирование исправлено, в процесс добавлена локальная проверка YAML (pyyaml) перед пушем |
+| 5 | Run на GitHub: `failure`, **0 jobs**, workflow не стартовал | Невалидный YAML: при правке файла скриптом `\n` внутри `printf '%s\n'` стал реальным переводом строки | `yaml.safe_load` локально: `could not find expected ':'`, line 90 | Экранирование исправлено, в процесс добавлена локальная проверка YAML (pyyaml) перед пушем |
 | 6 | На опубликованном сайте формула показана сырым LaTeX (`\[ R^2 = 1 - \frac{...`), хотя проверка «2 контейнера `mjx-container`» прошла | Конфиг MathJax неверен: оболочка Bash схлопнула `\\` в `\`, и разделителями формул стали обычные скобки; найденные 2 контейнера — это `(y_i - \hat y_i)`, а не формулы | Скриншот страницы, `cat docs/javascripts/mathjax-config.js`, поиск `frac{` в DOM после отрисовки | Файл записан инструментом Write с корректным экранированием; проверка усилена: в DOM нет `frac{`, есть inline- и display-контейнеры |
 | 7 | `yc storage s3 cp --recursive site/ s3://bucket/` залил файлы, но вложенные страницы отдают 404; в логе `upload: site\search\search_index.json to s3://.../search\search_index.json` | `yc` на Windows переносит обратные слэши в ключ объекта, а S3-ключ должен содержать `/` | `curl` вложенных URL, вывод команды, листинг ключей | Загрузка через S3 API (boto3 локально, `aws s3 sync` в CI) с ключами через `/`, неверные объекты удалены (80 шт.) |
 | 8 | `yc ... failed to initialize SDK: ... DeadlineExceeded` | Сеть не блокирует Яндекс (TCP до `api.cloud.yandex.net:443` проходит) — сбой обнаружения эндпоинтов временный | `Test-NetConnection`, `yc --debug`, повтор команды | Повтор с ретраями (3–4 попытки) в оболочке |
@@ -51,12 +49,12 @@
 ```
 push / PR (любая ветка)
       │
-   [lint]  python scripts/run_experiment.py + stamp.py; mkdocs build --strict
-      │  (ошибка/предупреждение → job красный, дальше не идёт)
+   [lint]  run_experiment.py + stamp.py; mkdocs build --strict
+      │  (ошибка или предупреждение → job красный, дальше не идёт)
    [build] кэш .cache+docs/generated (ключ = хеш data/** и скрипта),
-      │    make site → артефакт Pages; для main — ещё и site-yandex
-      ├── [deploy-pages]  только main и не PR: OIDC, upload/deploy-pages
-      └── [deploy-yandex] только main и не PR: aws s3 sync в Object Storage + healthcheck
+      │    make site → артефакт Pages; для main + site-yandex
+      ├── [deploy-pages]  только main, не PR: OIDC, deploy-pages
+      └── [deploy-yandex] только main, не PR: aws s3 sync + healthcheck
 ```
 
 | Событие | Поведение |

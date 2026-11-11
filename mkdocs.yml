@@ -25,6 +25,9 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.snippets: {base_path: ["."], check_paths: true}
 
+extra_css:
+  - stylesheets/extra.css
+
 extra_javascript:
   - javascripts/mathjax-config.js
   - javascripts/tex-svg.js       # MathJax хранится локально, не с CDN

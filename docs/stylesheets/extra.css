@@ -1,0 +1,19 @@
+/* Шире область контента: таблицы отчёта не сжимаются в узкую колонку */
+.md-grid { max-width: 90rem; }
+/* Длинные слова и код в ячейках переносятся, а не раздвигают таблицу */
+.md-typeset table:not([class]) { display: table; width: 100%; font-size: .72rem; }
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td { overflow-wrap: anywhere; word-break: normal; vertical-align: top; }
+.md-typeset table:not([class]) code { white-space: normal; overflow-wrap: anywhere; }
+/* Блоки кода: перенос длинных строк вместо обрезки */
+.md-typeset pre > code { white-space: pre-wrap; word-break: break-word; }
+/* Изображения не выходят за колонку */
+.md-typeset img { max-width: 100%; height: auto; }
+/* Выделенные формулы MathJax: на узких экранах контейнер схлопывался до ~33 px и формула пропадала */
+.md-typeset mjx-container[display="true"] { width: 100%; overflow-x: auto; overflow-y: hidden; }
+/* Мобильные: компактные ячейки таблиц */
+@media (max-width: 600px) {
+  .md-typeset table:not([class]) { font-size: .66rem; }
+  .md-typeset table:not([class]) th,
+  .md-typeset table:not([class]) td { padding: .5em .45em; min-width: 0; }
+}
