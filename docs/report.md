@@ -30,8 +30,87 @@
 | 5 | Run на GitHub: `failure`, **0 jobs**, workflow не стартовал | Невалидный YAML: при правке файла скриптом `
 ` внутри `printf '%s
 '` стал реальным переводом строки | `yaml.safe_load` локально: `could not find expected ':'`, line 90 | Экранирование исправлено, в процесс добавлена локальная проверка YAML (pyyaml) перед пушем |
+| 6 | На опубликованном сайте формула показана сырым LaTeX (`\[ R^2 = 1 - rac{...`), хотя проверка «2 × `mjx-container`» прошла | Конфиг MathJax неверен: оболочка Bash схлопнула `\` в `\`, и разделителями стали обычные скобки `(` `)`; найденные 2 контейнера — это `(y_i - \hat y_i)`, а не формулы | Скриншот страницы, `cat docs/javascripts/mathjax-config.js`, поиск `frac{` в DOM после отрисовки | Файл записан инструментом Write с корректным экранированием; проверка усилена: в DOM нет `frac{`, есть inline- и display-контейнеры (вес и результат T4 не изменились) |
 
-## Что ещё предстоит (требует доступов)
+## Ссылки
 
-- Создание репозитория на GitHub и включение Pages (Source = GitHub Actions).
-- Развёртывание на Helios ИТМО: секреты `HELIOS_*`, переменная `HELIOS_URL`.
+| Что | Ссылка |
+|---|---|
+| Репозиторий | <https://github.com/SolarVonBro/python-web-ssg> |
+| Сайт на GitHub Pages | <https://solarvonbro.github.io/python-web-ssg/> |
+| Сайт на Helios ИТМО | _ожидает доступов (см. ниже)_ |
+| Workflow | `.github/workflows/pages.yml` |
+| Ветка с намеренной ошибкой | `broken-link` |
+
+## Пайплайн
+
+```
+push / PR (любая ветка)
+      │
+   [lint]  python scripts/run_experiment.py + stamp.py; mkdocs build --strict
+      │  (ошибка/предупреждение → job красный, дальше не идёт)
+   [build] кэш .cache+docs/generated (ключ = хеш data/** и скрипта),
+      │    make site → артефакт Pages; для main + HELIOS_URL — ещё и site-helios
+      ├── [deploy-pages]  только main и не PR: OIDC, upload/deploy-pages
+      └── [deploy-helios] только main и не PR и если задан HELIOS_URL:
+                          rsync по SSH (known_hosts закреплён) + healthcheck
+```
+
+| Событие | Поведение |
+|---|---|
+| push в `main` | lint → build → deploy-pages (→ deploy-helios, если настроен) |
+| push в другую ветку | lint → build, деплой пропущен (`skipped`) |
+| pull request | lint → build; секреты и деплой недоступны |
+| `workflow_dispatch` | ручной запуск, как push в выбранную ветку |
+
+## Замеры CI (GitHub-hosted ubuntu-latest, Python 3.14)
+
+| Запуск | lint | build | deploy-pages | pip install (в build) | Расчёт эксперимента |
+|---|---|---|---|---|---|
+| Первый (кэши пусты) | 32 с | 45 с | 10 с | 23 с | выполнен (MISS) |
+| Те же данные, кэши есть | 29 с | 28 с | 11 с | 19 с | пропущен (HIT, шаг `Build` 1 с против 3 с) |
+| Данные v1.1.0 (ключ кэша изменился) | 29 с | 36 с | 10 с | 19 с | пересчитан (MISS, `Build` 3 с) |
+
+Вывод: кэш расчёта экономит ≈ 2 с из ≈ 3 с шага сборки; кэш pip — ≈ 4 с из 23 с
+(установка wheels доминирует). На данном объёме данных выигрыш мал: кэш
+оправдан при тяжёлых расчётах; локально выигрыш расчёта 1,61 с → 0,002 с.
+
+## Демонстрация «данные → push → сайт» (P3)
+
+Коммит `e7943b2`: версия набора 1.0.0 → 1.1.0, значения группы A сдвинуты на +3.
+После пуша без ручных действий workflow пересобрал и опубликовал сайт:
+сдвиг группы A 1,478 → **4,478**, метка версии: коммит `e7943b2`, набор `1.1.0`.
+
+## Скриншоты
+
+Сайт (десктоп и мобильное разрешение 390 px):
+
+![Страница P3, десктоп](assets/screens/site-results-desktop.png)
+
+![Страница P3, мобильный](assets/screens/site-results-mobile.png)
+
+Успешный запуск (`e7943b2`) и намеренно проваленный (ветка `broken-link`):
+
+![Успешный запуск](assets/screens/actions-success.png)
+
+![Проваленный запуск](assets/screens/actions-failed.png)
+
+Разбор лога проваленного запуска (job `lint`, шаг `mkdocs build --strict`):
+
+```
+WARNING -  Doc file 'index.md' contains a link 'no-such-page.md', but the target is not found among documentation files.
+Aborted with 1 warnings in strict mode!
+##[error]Process completed with exit code 1.
+```
+
+`--strict` превращает предупреждение о битой ссылке в ошибку; зависимые job
+`build`, `deploy-pages`, `deploy-helios` получили статус `skipped`, на сайт ничего не попало.
+
+## Helios ИТМО (не выполнено)
+
+Workflow содержит job `deploy-helios` (rsync по SSH с отдельным deploy-ключом,
+закреплённый `known_hosts`, healthcheck на код 200 и строку `pipeline-ok-p3`).
+Job включается переменной репозитория `HELIOS_URL` и секретами `HELIOS_HOST`,
+`HELIOS_PORT`, `HELIOS_USER`, `HELIOS_PATH`, `HELIOS_SSH_KEY`, `HELIOS_KNOWN_HOSTS`.
+Без данных доступа к Helios развернуть и проверить сайт нельзя: сборка под подкаталог
+Helios и сравнение с GitHub Pages выполнены не будут.
