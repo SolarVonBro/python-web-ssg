@@ -51,12 +51,12 @@ jobs:
         with: {path: site}
       # Отдельный артефакт — сборка под подкаталог Helios (другой site_url)
       - name: Build for Helios
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && vars.HELIOS_URL != ''
         env:
           SITE_URL: ${{ vars.HELIOS_URL }}
         run: rm -rf site && mkdocs build --strict -d site-helios
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && vars.HELIOS_URL != ''
         with: {name: site-helios, path: site-helios}
 
   deploy-pages:
@@ -70,7 +70,8 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   deploy-helios:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # выполняется только если настроен Helios (переменная HELIOS_URL задана)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.HELIOS_URL != ''
     needs: build
     runs-on: ubuntu-latest
     steps:
