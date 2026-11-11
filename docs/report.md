@@ -31,6 +31,9 @@
 ` внутри `printf '%s
 '` стал реальным переводом строки | `yaml.safe_load` локально: `could not find expected ':'`, line 90 | Экранирование исправлено, в процесс добавлена локальная проверка YAML (pyyaml) перед пушем |
 | 6 | На опубликованном сайте формула показана сырым LaTeX (`\[ R^2 = 1 - \frac{...`), хотя проверка «2 контейнера `mjx-container`» прошла | Конфиг MathJax неверен: оболочка Bash схлопнула `\\` в `\`, и разделителями формул стали обычные скобки; найденные 2 контейнера — это `(y_i - \hat y_i)`, а не формулы | Скриншот страницы, `cat docs/javascripts/mathjax-config.js`, поиск `frac{` в DOM после отрисовки | Файл записан инструментом Write с корректным экранированием; проверка усилена: в DOM нет `frac{`, есть inline- и display-контейнеры |
+| 7 | `yc storage s3 cp --recursive site/ s3://bucket/` залил файлы, но вложенные страницы отдают 404; в логе `upload: site\search\search_index.json to s3://.../search\search_index.json` | `yc` на Windows переносит обратные слэши в ключ объекта, а S3-ключ должен содержать `/` | `curl` вложенных URL, вывод команды, листинг ключей | Загрузка через S3 API (boto3 локально, `aws s3 sync` в CI) с ключами через `/`, неверные объекты удалены (80 шт.) |
+| 8 | `yc ... failed to initialize SDK: ... DeadlineExceeded` | Сеть не блокирует Яндекс (TCP до `api.cloud.yandex.net:443` проходит) — сбой обнаружения эндпоинтов временный | `Test-NetConnection`, `yc --debug`, повтор команды | Повтор с ретраями (3–4 попытки) в оболочке |
+| 9 | `TimeoutError` при подключении к `helios.cs.ifmo.ru:2222`, `Test-NetConnection: TcpTestSucceeded False` | Сервер ИТМО недоступен из сети (закрыт снаружи университета/страны) | TCP-проверка порта 2222 и `se.ifmo.ru:443`, DNS-резолв проходит (77.234.196.4) | Деплой переведён на Yandex Object Storage; `deploy-helios` отключён по умолчанию |
 
 ## Ссылки
 
@@ -38,7 +41,8 @@
 |---|---|
 | Репозиторий | <https://github.com/SolarVonBro/python-web-ssg> |
 | Сайт на GitHub Pages | <https://solarvonbro.github.io/python-web-ssg/> |
-| Сайт на Helios ИТМО | _ожидает доступов (см. ниже)_ |
+| Сайт на Yandex Object Storage | <http://python-web-ssg-398704.website.yandexcloud.net/> |
+| Helios ИТМО | недоступен из сети, см. раздел «Отечественный хостинг» |
 | Workflow | `.github/workflows/pages.yml` |
 | Ветка с намеренной ошибкой | `broken-link` |
 
@@ -52,13 +56,14 @@ push / PR (любая ветка)
    [build] кэш .cache+docs/generated (ключ = хеш data/** и скрипта),
       │    make site → артефакт Pages; для main + HELIOS_URL — ещё и site-helios
       ├── [deploy-pages]  только main и не PR: OIDC, upload/deploy-pages
+      ├── [deploy-yandex] только main и не PR: aws s3 sync в Object Storage + healthcheck
       └── [deploy-helios] только main и не PR и если задан HELIOS_URL:
                           rsync по SSH (known_hosts закреплён) + healthcheck
 ```
 
 | Событие | Поведение |
 |---|---|
-| push в `main` | lint → build → deploy-pages (→ deploy-helios, если настроен) |
+| push в `main` | lint → build → deploy-pages (→ deploy-yandex; deploy-helios, если настроен) |
 | push в другую ветку | lint → build, деплой пропущен (`skipped`) |
 | pull request | lint → build; секреты и деплой недоступны |
 | `workflow_dispatch` | ручной запуск, как push в выбранную ветку |
@@ -91,6 +96,12 @@ push / PR (любая ветка)
 
 Примечание: headless Chrome не создаёт окно уже ~500 px, поэтому снимок «390 px» обрезан справа; это артефакт съёмки, а не вёрстки (Material адаптивен, меню свёрнуто в «гамбургер»). Полноценную проверку на устройстве/эмуляторе при необходимости нужно повторить.
 
+Сайт на Yandex Object Storage и успешный запуск с деплоем на Яндекс:
+
+![Сайт на Яндексе](assets/screens/yandex-results-desktop.png)
+
+![Запуск с deploy-yandex](assets/screens/actions-yandex-success.png)
+
 Успешный запуск (`e7943b2`) и намеренно проваленный (ветка `broken-link`):
 
 ![Успешный запуск](assets/screens/actions-success.png)
@@ -108,11 +119,48 @@ Aborted with 1 warnings in strict mode!
 `--strict` превращает предупреждение о битой ссылке в ошибку; зависимые job
 `build`, `deploy-pages`, `deploy-helios` получили статус `skipped`, на сайт ничего не попало.
 
-## Helios ИТМО (не выполнено)
+## Отечественный хостинг: Yandex Object Storage
 
-Workflow содержит job `deploy-helios` (rsync по SSH с отдельным deploy-ключом,
-закреплённый `known_hosts`, healthcheck на код 200 и строку `pipeline-ok-p3`).
-Job включается переменной репозитория `HELIOS_URL` и секретами `HELIOS_HOST`,
-`HELIOS_PORT`, `HELIOS_USER`, `HELIOS_PATH`, `HELIOS_SSH_KEY`, `HELIOS_KNOWN_HOSTS`.
-Без данных доступа к Helios развернуть и проверить сайт нельзя: сборка под подкаталог
-Helios и сравнение с GitHub Pages выполнены не будут.
+Helios ИТМО с компьютера автора и из среды выполнения недоступен (`helios.cs.ifmo.ru:2222` и `se.ifmo.ru`
+не отвечают по TCP: адрес 77.234.196.4, таймаут), поэтому в качестве отечественного статического
+хостинга использован **Yandex Object Storage** в режиме хостинга сайта. Задание допускает
+«Helios или другой отечественный хостинг».
+
+| Параметр | Значение |
+|---|---|
+| Бакет | `python-web-ssg-398704`, класс STANDARD, публичное чтение, квота 100 МБ |
+| URL сайта | <http://python-web-ssg-398704.website.yandexcloud.net/> (только HTTP: HTTPS для website-endpoint требует собственный домен и сертификат) |
+| Способ доставки | S3 API, `aws s3 sync --delete` |
+| Учётные данные | ключ сервисного аккаунта `ssg-deployer`, ACL full-control **только на этот бакет**; хранится в секретах GitHub (`YC_ACCESS_KEY_ID`, `YC_SECRET_ACCESS_KEY`), в логе маскируется (`***`) |
+| Переменные | `YC_BUCKET`, `YC_SITE_URL` (репозиторные variables) |
+| Контроль качества | healthcheck: до 5 попыток, код 200 и строка `pipeline-ok-p3`, иначе job падает |
+
+Особенность base URL: сайт лежит в корне бакета, поэтому `site_url` = URL бакета; все ссылки
+в сборке относительные (`use_directory_urls: true`), что допускает и размещение в подкаталоге.
+
+### Сравнение развёртывания (CI, первый запуск с Yandex, коммит `527dc60`)
+
+| Показатель | GitHub Pages | Yandex Object Storage |
+|---|---|---|
+| Время job деплоя | 8 с | 21 с (59 файлов, 5,1 МБ) |
+| Механизм | OIDC + artifact, секретов нет | S3-ключ в секретах, права на один бакет |
+| Откат | перезапуск старого run / revert | то же + при включении версионирования бакета |
+| Протокол | HTTPS | HTTP (website-endpoint) |
+| Отладка | логи Actions | логи Actions + `yc`/S3 листинг бакета |
+
+Локальная проверка доставки без CI (boto3): очистка 80 объектов и загрузка 59 файлов — 15,7 с.
+
+### Стоимость
+
+Ресурсы, созданные для сайта: один бакет (≈ 6 МБ) и сервисный аккаунт с одним ключом. Платных
+функций (Ice/Smart storage, версионирование, логи бакета, ВМ, IP, serverless) не включено. По странице
+тарифов Яндекса ежемесячно бесплатны: 1 ГБ хранения, 10 000 запросов записи/листинга,
+100 000 запросов чтения и 100 ГБ исходящего трафика; сайт укладывается в эти лимиты. Квота бакета
+100 МБ ограничивает рост хранения. Официальная таблица цен: <https://yandex.cloud/ru/prices>.
+
+### Helios (не выполнено)
+
+Job `deploy-helios` (rsync по SSH с закреплённым `known_hosts` и healthcheck) оставлен в workflow,
+но выключен: он срабатывает только при заданной переменной `HELIOS_URL`. Развернуть и проверить
+сайт на Helios не удалось из-за недоступности сервера из сети автора; GitHub-hosted раннеры также
+находятся за пределами сети ИТМО, поэтому для Helios понадобился бы self-hosted раннер.
