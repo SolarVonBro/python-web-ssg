@@ -21,3 +21,5 @@
 
 Тексты и рисунки — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 (`LICENSE-CONTENT`), код и конфигурация — MIT (`LICENSE`).
+
+См. [несуществующая страница](no-such-page.md).
