@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data" / "measurements.csv"
 OUT = ROOT / "docs" / "generated"
 CACHE = ROOT / ".cache" / "experiment.json"
-OUTPUTS = ["fit.png", "metrics.csv", "metrics.md"]
+OUTPUTS = ["fit.png", "metrics.csv", "metrics.md", "figure.md"]
 
 
 def input_hash() -> str:
@@ -52,6 +52,10 @@ def main() -> int:
         ax.plot(d.x, pred, color=c, lw=2)
     ax.set_xlabel("x"); ax.set_ylabel("y"); ax.grid(alpha=.3); ax.legend()
     fig.tight_layout(); fig.savefig(OUT / "fit.png"); plt.close(fig)
+    # Адрес картинки меняется вместе с данными (?v=<хеш>), иначе браузер
+    # показывает старый fit.png из кэша, хотя таблица уже новая.
+    (OUT / "figure.md").write_text(
+        f"![Регрессия по группам](generated/fit.png?v={key[:12]})\n", encoding="utf-8")
 
     m = pd.DataFrame(rows)
     m.to_csv(OUT / "metrics.csv", index=False)

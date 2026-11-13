@@ -18,7 +18,7 @@ R^2 = 1 - \frac{\sum_i (y_i - \hat y_i)^2}{\sum_i (y_i - \bar y)^2}.
 
 ## Результаты
 
-![Регрессия по группам](generated/fit.png)
+--8<-- "docs/generated/figure.md"
 
 --8<-- "docs/generated/metrics.md"
 
