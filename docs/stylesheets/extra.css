@@ -11,6 +11,14 @@
 .md-typeset img { max-width: 100%; height: auto; }
 /* Выделенные формулы MathJax: на узких экранах контейнер схлопывался до ~33 px и формула пропадала */
 .md-typeset mjx-container[display="true"] { width: 100%; overflow-x: auto; overflow-y: hidden; }
+/* Титульный лист отчёта */
+.md-typeset .title-page { display: flex; flex-direction: column; gap: 1.8rem; text-align: center;
+  padding: 2.2rem 1rem; margin: 0 0 2rem; border: 1px solid var(--md-default-fg-color--lightest); border-radius: .2rem; }
+.md-typeset .title-page p { margin: 0; }
+.md-typeset .title-page h1 { margin: 0 0 .5rem; letter-spacing: .12em; font-weight: 700; color: var(--md-default-fg-color); }
+.md-typeset .title-page .tp-topic { font-size: 1.2em; font-weight: 700; margin-top: .4rem; }
+.md-typeset .title-page .tp-parts { margin-top: .8rem; color: var(--md-default-fg-color--light); }
+.md-typeset .title-page .tp-authors { align-self: flex-end; text-align: left; margin-right: 8%; }
 /* Мобильные: компактные ячейки таблиц */
 @media (max-width: 600px) {
   .md-typeset table:not([class]) { font-size: .66rem; }

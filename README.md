@@ -10,4 +10,4 @@ make serve         # предпросмотр
 ```
 
 Лицензии: код — MIT (`LICENSE`), контент — CC BY 4.0 (`LICENSE-CONTENT`).
-Отчёт — раздел «Отчёт и отладка» на сайте.
+Отчёт — раздел «Отчёт» на сайте ([`docs/report.md`](docs/report.md)); версия для печати — [`docs/assets/otchet-zadanie-1.pdf`](docs/assets/otchet-zadanie-1.pdf).

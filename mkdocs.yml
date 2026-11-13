@@ -17,6 +17,7 @@ plugins:
       lang: [ru, en]
 
 markdown_extensions:
+  - admonition                   # блок «Версия для печати» в отчёте
   - tables
   - footnotes
   - toc: {permalink: true}
@@ -40,4 +41,4 @@ nav:
   - Главная: index.md
   - "P3: данные → сайт": results.md
   - "T4: безопасность доставки": research-t4.md
-  - Отчёт и отладка: report.md
+  - Отчёт: report.md
